@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BudgetBuddy</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Poppins', sans-serif;
+      display: flex;
+      min-height: 100vh;
+      background: #f4f7fa;
+      color: #333;
+      transition: 0.3s ease;
+    }
+    .sidebar {
+      width: 250px;
+      background: #2c3e50;
+      color: white;
+      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+    .sidebar h2 {
+      text-align: center;
+      font-size: 1.6rem;
+    }
+    .sidebar a {
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      color: #ecf0f1;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .sidebar a:hover, .sidebar a.active {
+      background: #3498db;
+    }
+    .main {
+      margin-left: 250px;
+      padding: 2rem;
+      flex: 1;
+    }
+    .content-section { display: none; }
+    .content-section.active { display: block; }
+    header {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      color: #3498db;
+    }
+    body.dark {
+      background: #121212;
+      color: #f0f0f0;
+    }
+    body.dark .sidebar { background: #1a1a1a; }
+    body.dark .sidebar a { color: #ccc; }
+    body.dark .sidebar a.active,
+    body.dark .sidebar a:hover { background: #555; }
+    body.dark .main { background: #181818; }
+
+    /* Add Expense Style */
+    .form-group {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .form-group input {
+      padding: 0.6rem;
+      flex: 1;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      padding: 0.7rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      background: #3498db;
+      color: white;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    th, td {
+      padding: 0.75rem;
+      border-bottom: 1px solid #ccc;
+    }
+    iframe {
+      width: 100%;
+      height: 80vh;
+      border: none;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>💸 BudgetBuddy</h2>
+    <a class="active" onclick="navigateTo('dashboard')">📊 Dashboard</a>
+    <a onclick="navigateTo('addExpense')">➕ Add Expense</a>
+    <a onclick="navigateTo('history')">📄 Expense History</a>
+    <a onclick="navigateTo('insights')">📈 Insights</a>
+    <a onclick="navigateTo('account')">👤 My Account</a>
+    <a onclick="navigateTo('settings')">⚙️ Settings</a>
+    <a onclick="toggleDarkMode()">🌙 Toggle Dark Mode</a>
+  </div>
+
+  <div class="main">
+    <!-- Dashboard -->
+    <div id="dashboardSection" class="content-section active">
+      <header>📊 Dashboard</header>
+      <iframe src="dem3.html"></iframe>
+    </div>
+
+    <!-- Add Expense -->
+    <div id="addExpenseSection" class="content-section">
+      <header>➕ Add Expense</header>
+      <div class="form-group">
+        <input type="date" id="date" />
+        <input type="text" id="category" placeholder="Category" />
+        <input type="number" id="amount" placeholder="Amount ₹" />
+        <input type="text" id="note" placeholder="Note" />
+        <button onclick="addExpense()">Add</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th><th>Category</th><th>Amount</th><th>Note</th>
+          </tr>
+        </thead>
+        <tbody id="expenseTable"></tbody>
+      </table>
+    </div>
+
+    <!-- Expense History -->
+    <div id="historySection" class="content-section">
+      <header>📄 Expense History</header>
+      <ul id="historyList"></ul>
+    </div>
+
+    <!-- Insights -->
+    <div id="insightsSection" class="content-section">
+      <header>📈 Insights</header>
+      <canvas id="insightChart" width="400" height="400"></canvas>
+    </div>
+
+    <!-- My Account -->
+    <div id="accountSection" class="content-section">
+      <header>👤 My Account</header>
+      <p><strong>Name:</strong> Harsh Tak</p>
+      <p><strong>Email:</strong> example@example.com</p>
+    </div>
+
+    <!-- Settings -->
+    <div id="settingsSection" class="content-section">
+      <header>⚙️ Settings</header>
+      <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+    </div>
+  </div>
+
+  <script>
+    let expenses = [];
+    let chart;
+
+    function navigateTo(section) {
+      document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
+      document.getElementById(section + 'Section').classList.add('active');
+      document.querySelectorAll('.sidebar a').forEach(link => link.classList.remove('active'));
+      document.querySelectorAll('.sidebar a').forEach(link => {
+        if (link.textContent.toLowerCase().includes(section)) {
+          link.classList.add('active');
+        }
+      });
+      if (section === 'insights') drawChart();
+      if (section === 'history') loadHistory();
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark');
+    }
+
+    function addExpense() {
+      const date = document.getElementById('date').value;
+      const category = document.getElementById('category').value;
+      const amount = parseFloat(document.getElementById('amount').value);
+      const note = document.getElementById('note').value;
+
+      if (!date || !category || isNaN(amount) || !note) {
+        alert("Please fill all fields.");
+        return;
+      }
+
+      const expense = { date, category, amount, note };
+      expenses.push(expense);
+      updateTable();
+      updateLocalStorage();
+    }
+
+    function updateTable() {
+      const tbody = document.getElementById('expenseTable');
+      tbody.innerHTML = '';
+      expenses.forEach(e => {
+        const row = `<tr>
+          <td>${e.date}</td>
+          <td>${e.category}</td>
+          <td>₹ ${e.amount}</td>
+          <td>${e.note}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+      });
+    }
+
+    function updateLocalStorage() {
+      localStorage.setItem('expenses', JSON.stringify(expenses));
+    }
+
+    function loadExpenses() {
+      const data = localStorage.getItem('expenses');
+      if (data) {
+        expenses = JSON.parse(data);
+        updateTable();
+      }
+    }
+
+    function loadHistory() {
+      const list = document.getElementById('historyList');
+      list.innerHTML = '';
+      expenses.forEach(e => {
+        const li = document.createElement('li');
+        li.textContent = `${e.date} | ₹${e.amount} | ${e.category} - ${e.note}`;
+        list.appendChild(li);
+      });
+    }
+
+    function drawChart() {
+      const ctx = document.getElementById('insightChart').getContext('2d');
+      const categories = {};
+      expenses.forEach(e => categories[e.category] = (categories[e.category] || 0) + e.amount);
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: Object.keys(categories),
+          datasets: [{
+            data: Object.values(categories),
+            backgroundColor: ['#3498db', '#f39c12', '#2ecc71', '#e74c3c', '#9b59b6'],
+          }]
+        }
+      });
+    }
+
+    window.onload = loadExpenses;
+  </script>
+</body>
+</html>
